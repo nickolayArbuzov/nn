@@ -2,75 +2,86 @@ import numpy as np
 from keras.datasets import mnist
 
 
+def softmax(x):
+    exp_x = np.exp(x - np.max(x, axis=1, keepdims=True))
+    return exp_x / np.sum(exp_x, axis=1, keepdims=True)
+
+
 def relu(x):
-    return (x > 0) * x
+    return np.maximum(0, x)
 
 
-def reluderiv(x):
-    return x > 0
+def relu_derivative(x):
+    return (x > 0).astype(float)
 
 
 train_images_count = 1000
 test_images_count = 10000
 pixels_per_image = 28 * 28
-digits_mum = 10
+digits_num = 10
 
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
+
 train_images = (
-    x_train[0:train_images_count].reshape(train_images_count, pixels_per_image) / 255
+    x_train[:train_images_count].reshape(train_images_count, pixels_per_image) / 255.0
 )
-train_labels = y_train[0:train_images_count]
+test_images = (
+    x_test[:test_images_count].reshape(test_images_count, pixels_per_image) / 255.0
+)
 
-test_images = (x_test)[0:test_images_count].reshape(
-    test_images_count, pixels_per_image
-) / 255
-test_labels = y_test[0:test_images_count]
 
-one_hot_labels = np.zeros((len(train_labels), digits_mum))
-for i in range(len(train_labels)):
-    one_hot_labels[i][train_labels[i]] = 1
+def one_hot_encode(labels, num_classes):
+    one_hot = np.zeros((len(labels), num_classes))
+    one_hot[np.arange(len(labels)), labels] = 1
+    return one_hot
 
-train_lables = one_hot_labels
 
-one_hot_labels = np.zeros((len(test_labels), digits_mum))
-for i, j in enumerate(test_labels):
-    one_hot_labels[i][j] = 1
+train_labels = one_hot_encode(y_train[:train_images_count], digits_num)
+test_labels = one_hot_encode(y_test[:test_images_count], digits_num)
 
-test_labels = one_hot_labels
+np.random.seed(42)
+hidden_size = 100
 
-np.random.seed(2)
-hidden_size = 50
-
-weights_in_hidden_1 = 0.2 * np.random.random((pixels_per_image, hidden_size)) - 0.1
-weights_hidden_1_out = 0.2 * np.random.random((hidden_size, digits_mum)) - 0.1
+weights_in_hidden_1 = np.random.randn(pixels_per_image, hidden_size) * np.sqrt(
+    2.0 / (pixels_per_image + hidden_size)
+)
+weights_hidden_1_out = np.random.randn(hidden_size, digits_num) * np.sqrt(
+    2.0 / (hidden_size + digits_num)
+)
 
 learning_rate = 0.01
 num_epochs = 100
 
-for i in range(num_epochs):
+for epoch in range(num_epochs):
     correct_answers = 0
     for j in range(len(train_images)):
         layer_in = train_images[j : j + 1]
         layer_hidden_1 = relu(np.dot(layer_in, weights_in_hidden_1))
-        layer_out = np.dot(layer_hidden_1, weights_hidden_1_out)
+        layer_out = softmax(np.dot(layer_hidden_1, weights_hidden_1_out))
+
         correct_answers += int(
             np.argmax(layer_out) == np.argmax(train_labels[j : j + 1])
         )
-        layer_out_delta = layer_out - train_labels[j : j + 1]
-        layer_hidden_1_delta = layer_out_delta.dot(weights_hidden_1_out.T) * reluderiv(
-            layer_hidden_1
-        )
 
-        weights_hidden_1_out -= learning_rate * layer_hidden_1.T.dot(layer_out_delta)
-        weights_in_hidden_1 -= learning_rate * layer_in.T.dot(layer_hidden_1_delta)
-    print("Epoch: ", i)
-    print("Accuracy: ", correct_answers * 100 / len(train_images))
+        layer_out_delta = layer_out - train_labels[j : j + 1]
+        layer_hidden_1_delta = np.dot(
+            layer_out_delta, weights_hidden_1_out.T
+        ) * relu_derivative(layer_hidden_1)
+
+        weights_hidden_1_out -= learning_rate * np.dot(
+            layer_hidden_1.T, layer_out_delta
+        )
+        weights_in_hidden_1 -= learning_rate * np.dot(layer_in.T, layer_hidden_1_delta)
+
+    print(
+        f"Epoch {epoch + 1}: Training Accuracy = {correct_answers * 100 / len(train_images):.2f}%"
+    )
 
 correct_answers = 0
 for i in range(len(test_images)):
     layer_in = test_images[i : i + 1]
     layer_hidden_1 = relu(np.dot(layer_in, weights_in_hidden_1))
-    layer_out = np.dot(layer_hidden_1, weights_hidden_1_out)
+    layer_out = softmax(np.dot(layer_hidden_1, weights_hidden_1_out))
     correct_answers += int(np.argmax(layer_out) == np.argmax(test_labels[i : i + 1]))
 
-print("Test Accuracy: ", correct_answers * 100 / len(test_images))
+print(f"Test Accuracy: {correct_answers * 100 / len(test_images):.2f}%")
