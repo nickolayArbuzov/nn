@@ -199,3 +199,28 @@ class Sigmoid(Layer):
 class Tanh(Layer):
     def forward(self, input):
         return input.tanh()
+
+
+class MSELoss(Layer):
+    def forward(self, prediction, true_prediction):
+        return ((prediction - true_prediction) * (prediction - true_prediction)).sum(0)
+
+
+np.random.seed(0)
+input = Tensor([[2, 3], [5, 10]], autograd=True)
+true_predictions = Tensor([[5, 15]], autograd=True)
+
+model = Sequential([Linear(2, 2), Linear(2, 1)])
+
+sgd = SGD(weights=model.get_parameters(), learning_rate=0.001)
+loss = MSELoss()
+num_epochs = 10
+
+for i in range(num_epochs):
+    predictions = model.forward(input)
+    error = loss.forward(prediction=predictions, true_prediction=true_predictions)
+    error.backward(Tensor(np.ones_like(error.data)))
+    sgd.step()
+    print("error", error)
+
+print(model.forward(Tensor([[4, 8], [0, -3]])))
