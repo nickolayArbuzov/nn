@@ -1,4 +1,5 @@
 from torch import nn
+import torch
 import torch.nn.functional as F
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import transforms
@@ -53,7 +54,37 @@ class ImageModel(nn.Module):
         out = self.pool(out)
         out = F.relu(self.bn3(self.conv3(out)))
         out = F.relu(self.bn4(self.conv4(out)))
+        out = out.view(-1, 24 * 10 * 10)
         return self.fc(out)
 
 
+classes = [
+    "airplane",
+    "automobile",
+    "bird",
+    "cat",
+    "deer",
+    "dog",
+    "frog",
+    "horse",
+    "ship",
+    "truck",
+]
 model = ImageModel()
+
+
+def test_accuracy():
+    model.eval()
+    accuracy = 0
+    total = 0
+    for test_data in test_data_loader:
+        images, labels = test_data
+        output = model(images)
+        predicted = torch.max(output.data, 1)[1]
+        accuracy += (predicted == labels).sum().item()
+        total += labels.size(0)
+
+    return 100 * accuracy / total
+
+
+print(test_accuracy())
