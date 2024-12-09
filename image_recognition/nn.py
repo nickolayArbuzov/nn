@@ -1,10 +1,13 @@
+import numpy as np
 from torch import nn
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+import torchvision
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
 root = "./images"
 batch_size = 10
@@ -108,3 +111,25 @@ for epoch in range(num_epochs):
     if accuracy > best_accaracy:
         best_accaracy = accuracy
         torch.save(model.state_dict(), model_save_path)
+
+
+def print_labels(title, labels):
+    print(title, end=" ")
+    for i in range(batch_size):
+        print(classes[labels[i]], end=" ")
+    print()
+
+
+load_model = ImageModel()
+load_model.load_state_dict(torch.load(model_save_path))
+images, true_labels = next(iter(test_data_loader))
+print_labels("labels: ", true_labels)
+
+output = load_model(images)
+predicted_labels = torch.max(output, 1)[1]
+print_labels("predicted labels: ", predicted_labels)
+
+images = torchvision.utils.make_grid(images)
+images = images / 2 + 0.5
+plt.imshow(np.transpose(images.numpy(), (1, 2, 0)))
+plt.show()
