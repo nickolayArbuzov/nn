@@ -1,6 +1,7 @@
 from torch import nn
 import torch
 import torch.nn.functional as F
+from torch.optim import Adam
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
@@ -87,4 +88,23 @@ def test_accuracy():
     return 100 * accuracy / total
 
 
-print(test_accuracy())
+loss = nn.CrossEntropyLoss()
+optimizer = Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
+
+num_epochs = 3
+best_accaracy = 0.0
+model_save_path = "./best.pth"
+
+model.train()
+for epoch in range(num_epochs):
+    for i, (images, labels) in enumerate(train_data_loader, 0):
+        optimizer.zero_grad()
+        output = model(images)
+        error = loss(output, labels)
+        error.backward()
+        optimizer.step()
+    accuracy = test_accuracy()
+    print("epoch: ", epoch, " accuracy: ", accuracy)
+    if accuracy > best_accaracy:
+        best_accaracy = accuracy
+        torch.save(model.state_dict(), model_save_path)
