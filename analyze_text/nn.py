@@ -4,6 +4,7 @@ import re
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 from torch import nn
+from torch.optim import Adam
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -69,10 +70,10 @@ train_y, remainder_y = labels[:train_last_index], labels[train_last_index:]
 
 test_last_index = int(len(remainder_x) * test_len)
 test_x = remainder_x[:test_last_index]
-test_y = labels[:test_last_index]
+test_y = remainder_y[:test_last_index]
 
 check_x = remainder_x[:test_last_index]
-check_y = labels[:test_last_index]
+check_y = remainder_y[:test_last_index]
 
 train_dataset = TensorDataset(torch.from_numpy(train_x), torch.from_numpy(train_y))
 test_dataset = TensorDataset(torch.from_numpy(test_x), torch.from_numpy(test_y))
@@ -91,7 +92,11 @@ class TextModel(nn.Module):
         super(TextModel, self).__init__()
         self.embedding = nn.Embedding(vocabulary_size, embedding_size)
         self.lstm = nn.LSTM(
-            embedding_size, hidden_size, lstm_layers, lstm_dropout, batch_first=True
+            embedding_size,
+            hidden_size,
+            lstm_layers,
+            dropout=lstm_dropout,
+            batch_first=True,
         )
         self.dropout = nn.Dropout(0.3)
         self.fc = nn.Linear(hidden_size, 1)
@@ -108,3 +113,50 @@ class TextModel(nn.Module):
 
 
 model = TextModel(len(word2int), 256, 128, 2, 0.25)
+
+criterion = nn.BCELoss()
+optimizer = Adam(model.parameters(), lr=0.001)
+num_epochs = 5
+clip_grad = 5
+model_path = "text.pth"
+
+
+def get_accuracy(out, target):
+    predicted = torch.rensor([1 if i else 0 for i in out > 0.5])
+    equals = predicted == target
+    return torch.mean(equals.type(torch.FloatTensor)).item()
+
+
+test_loss_min = torch.inf
+
+for epoch in range(num_epochs):
+    model.train()
+    train_loss = 0
+    train_accuracy = 0
+
+    for i, (current_reviews, target) in enumerate(train_loader):
+        optimizer.zero_grad()
+        out = model(current_reviews)
+        train_accuracy += get_accuracy(out, target)
+        loss = criterion(out.squeeze(), target.float())
+        train_loss += loss
+        loss.backward()
+
+        nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
+        optimizer.step()
+    model.eval()
+    test_loss = 0
+    test_accuracy = 0
+
+    with torch.no_grad():
+        for i, (current_reviews, target) in enumerate(test_loader):
+            out = model(current_reviews)
+            test_accuracy += get_accuracy(out, target)
+            test_loss += loss.item()
+
+    model.train()
+
+    test_loss = test_loss / len(test_loader)
+    if test_loss < test_loss_min:
+        test_loss_min = test_loss
+        torch.save(model.state_dict(), model_path)
