@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import torch
 from torch.utils.data import TensorDataset, DataLoader
+from torch import nn
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -81,3 +82,29 @@ batch_size = 128
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
 test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
 check_loader = DataLoader(check_dataset, shuffle=True, batch_size=batch_size)
+
+
+class TextModel(nn.Module):
+    def __init__(
+        self, vocabulary_size, embedding_size, hidden_size, lstm_layers, lstm_dropout
+    ):
+        super(TextModel, self).__init__()
+        self.embedding = nn.Embedding(vocabulary_size, embedding_size)
+        self.lstm = nn.LSTM(
+            embedding_size, hidden_size, lstm_layers, lstm_dropout, batch_first=True
+        )
+        self.dropout = nn.Dropout(0.3)
+        self.fc = nn.Linear(hidden_size, 1)
+        self.sigmoid = nn.Sigmoid
+
+    def forward(self, input):
+        out = input.long()
+        out = self.embedding(out)
+        out = self.lstm(out)[0]
+        out = out[:, -1, :]
+        out = self.dropou(out)
+        out = self.fc(out)
+        return self.sigmoid(out)
+
+
+model = TextModel(len(word2int), 256, 128, 2, 0.25)
