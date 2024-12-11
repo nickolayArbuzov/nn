@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import re
+import torch
+from torch.utils.data import TensorDataset, DataLoader
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -67,3 +69,15 @@ train_y, remainder_y = labels[:train_last_index], labels[train_last_index:]
 test_last_index = int(len(remainder_x) * test_len)
 test_x = remainder_x[:test_last_index]
 test_y = labels[:test_last_index]
+
+check_x = remainder_x[:test_last_index]
+check_y = labels[:test_last_index]
+
+train_dataset = TensorDataset(torch.from_numpy(train_x), torch.from_numpy(train_y))
+test_dataset = TensorDataset(torch.from_numpy(test_x), torch.from_numpy(test_y))
+check_dataset = TensorDataset(torch.from_numpy(check_x), torch.from_numpy(check_y))
+
+batch_size = 128
+train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
+check_loader = DataLoader(check_dataset, shuffle=True, batch_size=batch_size)
