@@ -160,3 +160,14 @@ for epoch in range(num_epochs):
     if test_loss < test_loss_min:
         test_loss_min = test_loss
         torch.save(model.state_dict(), model_path)
+
+### re-check:
+model.load_state_dict(torch.load(model_path))
+
+model.eval()
+with torch.no_grad():
+    check_accuracy = 0
+    for current_reviews, target in check_loader:
+        out = model(current_reviews)
+        check_accuracy += get_accuracy(out, target)
+    print("Accuracy ", check_accuracy * 100 / len(check_loader))
